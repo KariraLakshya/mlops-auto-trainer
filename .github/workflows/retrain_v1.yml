@@ -1,0 +1,42 @@
+﻿name: Retrain V1 - train + upload
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'src/**'
+      - 'models/**'
+      - 'data/**'
+      - '.github/workflows/**'
+
+jobs:
+  train:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run training wrapper (random_forest)
+        run: python src/train_wrapper.py --script models/random_forest/train.py --data data/data.csv --out /tmp/model.pkl
+
+      - name: Evaluate (if eval script exists)
+        run: |
+          if (Test-Path src/eval.py) {
+            python src/eval.py --model /tmp/model.pkl --data data/data.csv
+          } else {
+            echo 'No eval.py found; skipping evaluation'
+          }
+
+      - name: Upload model artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: model-artifact
+          path: /tmp/model.pkl
