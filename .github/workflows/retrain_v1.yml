@@ -82,6 +82,11 @@ jobs:
         run: |
           mkdir -p model 
           ls -la model
+      - name: Normalize owner (lowercase)
+        id: lower
+        run: |
+          owner_lower=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          echo "owner_lower=$owner_lower" >> $GITHUB_OUTPUT
 
       - name: Log in to GitHub Container Registry (GHCR)
         uses: docker/login-action@v2
@@ -95,8 +100,8 @@ jobs:
         with:
           context: .
           push: true
-          tags: ghcr.io/${{ github.repository_owner }}/ml-model:${{ github.run_id }}
+          tags: ghcr.io/${{ steps.lower.outputs.owner_lower }}/ml-model:${{ github.run_id }}
 
       - name: Report pushed image
         run: |
-          echo "Image pushed: ghcr.io/${{ github.repository_owner }}/ml-model:${{ github.run_id }}"
+          echo "Image pushed: ghcr.io/${{ steps.lower.outputs.owner_lower }}/ml-model:${{ github.run_id }}"
