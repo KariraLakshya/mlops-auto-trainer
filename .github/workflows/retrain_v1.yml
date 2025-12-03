@@ -80,7 +80,7 @@ jobs:
 
       - name: Prepare model for image
         run: |
-          mkdir -p model && cp ./model/model.pkl model/model.pkl
+          mkdir -p model 
           ls -la model
 
       - name: Log in to GitHub Container Registry (GHCR)
