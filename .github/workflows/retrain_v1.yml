@@ -1,4 +1,4 @@
-﻿name: Retrain V1 - train + upload
+﻿name: Retrain V1 - train + gated build
 
 on:
   workflow_dispatch:
@@ -9,9 +9,15 @@ on:
       - 'data/**'
       - '.github/workflows/**'
 
+permissions:
+  contents: read
+  packages: write
+
 jobs:
   train:
     runs-on: ubuntu-latest
+    outputs:
+      accuracy_json: ${{ steps.eval_step.outputs.accuracy_json }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -25,7 +31,8 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Run training wrapper (random_forest)
-        run: python src/train_wrapper.py --script models/random_forest/train.py --data data/data.csv --out /tmp/model.pkl
+        run: |
+          python src/train_wrapper.py --script models/random_forest/train.py --data data/data.csv --out /tmp/model.pkl
 
       - name: Evaluate (if eval script exists)
         run: |
@@ -36,9 +43,60 @@ jobs:
             echo "No src/eval.py found; skipping evaluation"
           fi
 
+      - name: Evaluate and capture accuracy
+        id: eval_step
+        run: |
+          # run eval (prints EVAL_ACC=0.xxx)
+          python src/eval.py --model /tmp/model.pkl --data data/data.csv > eval_out.txt || true
+          cat eval_out.txt
+          # parse the printed value
+          ACC_LINE=$(grep -Eo "EVAL_ACC=[0-9]+\.[0-9]+" eval_out.txt || echo "EVAL_ACC=0.0")
+          ACC=${ACC_LINE#EVAL_ACC=}
+          # write a JSON to a file (job output will use this)
+          echo "{\"accuracy\": ${ACC}}" > acc.json
+          echo "Parsed accuracy=$ACC"
+          # expose as step output (via GITHUB_OUTPUT) so job outputs can reference it
+          echo "accuracy_json=$(cat acc.json)" >> $GITHUB_OUTPUT
 
       - name: Upload model artifact
         uses: actions/upload-artifact@v4
         with:
           name: model-artifact
           path: /tmp/model.pkl
+
+  build-and-push:
+    needs: train
+    runs-on: ubuntu-latest
+    if: ${{ fromJson(needs.train.outputs.accuracy_json).accuracy >= 0.80 }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download model artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: model-artifact
+          path: ./model
+
+      - name: Prepare model for image
+        run: |
+          mkdir -p model && cp ./model/model.pkl model/model.pkl
+          ls -la model
+
+      - name: Log in to GitHub Container Registry (GHCR)
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build & push image to GHCR
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          push: true
+          tags: ghcr.io/${{ github.repository_owner }}/ml-model:${{ github.run_id }}
+
+      - name: Report pushed image
+        run: |
+          echo "Image pushed: ghcr.io/${{ github.repository_owner }}/ml-model:${{ github.run_id }}"
