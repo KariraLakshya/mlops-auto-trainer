@@ -1,4 +1,3 @@
-# src/eval.py
 import argparse, joblib, pandas as pd
 from sklearn.metrics import accuracy_score
 
