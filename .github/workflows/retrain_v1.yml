@@ -31,9 +31,22 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Run training wrapper (random_forest)
+      - name: Determine training script (manifest-aware)
+        id: determine_script
         run: |
-          python src/train_wrapper.py --script models/random_forest/train.py --data data/data.csv --out /tmp/model.pkl
+          SCRIPT=""
+          if [ -f mlmanifest.json ]; then
+            SCRIPT=$(python -c "import json; print(json.load(open('mlmanifest.json')).get('train_script',''))" || echo "")
+            if [ -n \"$SCRIPT\" ]; then
+              echo \"Found train_script in mlmanifest.json: $SCRIPT\"
+            fi
+          fi
+
+          if [ -z \"$SCRIPT\" ]; then
+            SCRIPT=\"models/random_forest/train.py\"
+            echo \"Using fallback script: $SCRIPT\"
+          fi
+          echo \"script=$SCRIPT\" >> $GITHUB_OUTPUT
 
       - name: Evaluate (if eval script exists)
         run: |
