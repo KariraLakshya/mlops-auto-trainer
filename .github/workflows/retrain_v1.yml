@@ -68,7 +68,7 @@ jobs:
           if [ -f "${{ steps.manifest.outputs.model_path }}" ]; then
             echo "Model file FOUND at ${{ steps.manifest.outputs.model_path }}"
             ls -la "${{ steps.manifest.outputs.model_path }}"
-          else:
+          else
             echo "ERROR: Model file NOT FOUND at ${{ steps.manifest.outputs.model_path }}" >&2
             exit 1
           fi
