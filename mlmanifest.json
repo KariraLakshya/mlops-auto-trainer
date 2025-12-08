@@ -1,6 +1,6 @@
 {
-  "model": "random_forest",
   "train_script": "models/random_forest/train.py",
   "eval_script": "src/eval.py",
-  "entry_point_args": "--data {data_path} --out {out_path}"
+  "data_path": "data/data.csv",
+  "model_output_path": "/tmp/model.pkl"
 }
