@@ -14,7 +14,6 @@ app = FastAPI(title="ML Model Service")
 
 os.makedirs(LOG_DIR, exist_ok=True)
 if not os.path.exists(LOG_PATH):
-    # create CSV with header
     with open(LOG_PATH, "w", newline="") as f:
         writer = csv.writer(f)
         writer.writerow(["timestamp_utc", "features", "prediction"])
