@@ -17,8 +17,14 @@ permissions:
   packages: write
 
 jobs:
-  train-and-deploy:
+  # --- JOB 1: TRAIN & PROFILE ---
+  train:
     runs-on: ubuntu-latest
+    # Define outputs so the 'deploy' job can read them
+    outputs:
+      should_deploy: ${{ steps.check_acc.outputs.deploy_trigger }}
+      model_path: ${{ steps.manifest.outputs.model_path }}
+    
     steps:
       - uses: actions/checkout@v4
 
@@ -30,7 +36,6 @@ jobs:
       - name: Install Dependencies
         run: pip install -r requirements.txt
 
-      # 1. READ MANIFEST
       - name: Parse Manifest
         id: manifest
         run: |
@@ -45,7 +50,6 @@ jobs:
           echo "model_path=$OUT" >> $GITHUB_OUTPUT
           echo "eval_script=$EVAL" >> $GITHUB_OUTPUT
 
-      # 2. RUN WRAPPER
       - name: Run Training & Profiling
         run: |
           python src/train_wrapper.py \
@@ -53,7 +57,6 @@ jobs:
             --data "${{ steps.manifest.outputs.data_path }}" \
             --out "${{ steps.manifest.outputs.model_path }}"
 
-      # 3. SAVE STATS
       - name: Commit Drift Stats
         run: |
           git config --global user.name "MLOps Bot"
@@ -61,7 +64,6 @@ jobs:
           git add metrics/training_stats.json
           git diff --quiet && git diff --staged --quiet || (git commit -m "Update drift baseline [skip ci]" && git push)
 
-      # 4. EVALUATE
       - name: Evaluate Model
         id: eval
         run: |
@@ -72,20 +74,60 @@ jobs:
           ACC_LINE=$(grep -Eo "EVAL_ACC=[0-9]+\.[0-9]+" eval_out.txt || echo "EVAL_ACC=0.0")
           ACC=${ACC_LINE#EVAL_ACC=}
           echo "accuracy=$ACC" >> $GITHUB_OUTPUT
+          echo "Parsed Accuracy: $ACC"
 
-      # 5. DEPLOY TO GHCR
-      - name: Login to GHCR
-        if: ${{ steps.eval.outputs.accuracy >= 0.80 }}
+      - name: Check Threshold
+        id: check_acc
+        run: |
+          ACC="${{ steps.eval.outputs.accuracy }}"
+          if (( $(echo "$ACC >= 0.80" | bc -l) )); then
+            echo "deploy_trigger=true" >> $GITHUB_OUTPUT
+            echo "✅ Accuracy $ACC meets threshold."
+          else
+            echo "deploy_trigger=false" >> $GITHUB_OUTPUT
+            echo "❌ Accuracy $ACC is below 0.80. Skipping deploy."
+          fi
+
+      # Upload Model so the next job can download it
+      - uses: actions/upload-artifact@v4
+        with:
+          name: model-artifact
+          path: ${{ steps.manifest.outputs.model_path }}
+
+  # --- JOB 2: BUILD & PUSH (Only runs if training succeeded) ---
+  deploy:
+    needs: train
+    runs-on: ubuntu-latest
+    # Only run if the 'train' job set the flag to true
+    if: ${{ needs.train.outputs.should_deploy == 'true' }}
+    
+    steps:
+      - uses: actions/checkout@v4
+
+      # Download the model trained in the previous job
+      - uses: actions/download-artifact@v4
+        with:
+          name: model-artifact
+          path: ./model 
+          # Note: We download to ./model so Dockerfile COPY model/ works
+
+      # FIX: Convert Repo Owner to Lowercase
+      - name: Lowercase Repo Owner
+        id: lower_repo
+        run: |
+          echo "repo_lc=${GITHUB_REPOSITORY_OWNER,,}" >> $GITHUB_OUTPUT
+
+      - name: Login to GitHub Container Registry
         uses: docker/login-action@v2
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and Push
-        if: ${{ steps.eval.outputs.accuracy >= 0.80 }}
+      - name: Build and Push Docker Image
         uses: docker/build-push-action@v4
         with:
           context: .
           push: true
-          tags: ghcr.io/${{ github.repository_owner }}/ml-model:latest
+          # Use the lowercase output from the previous step
+          tags: ghcr.io/${{ steps.lower_repo.outputs.repo_lc }}/ml-model:latest
