@@ -1,0 +1,91 @@
+﻿name: V3 - Orchestrator Train & Deploy
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'mlmanifest.json'
+      - 'models/**'
+      - 'data/**'
+      - 'src/**'
+      - 'Dockerfile'
+  repository_dispatch:
+    types: [trigger-retrain-event]
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  train-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install Dependencies
+        run: pip install -r requirements.txt
+
+      # 1. READ MANIFEST
+      - name: Parse Manifest
+        id: manifest
+        run: |
+          if [ ! -f mlmanifest.json ]; then exit 1; fi
+          TRAIN=$(python -c "import json; print(json.load(open('mlmanifest.json'))['train_script'])")
+          DATA=$(python -c "import json; print(json.load(open('mlmanifest.json'))['data_path'])")
+          OUT=$(python -c "import json; print(json.load(open('mlmanifest.json'))['model_output_path'])")
+          EVAL=$(python -c "import json; print(json.load(open('mlmanifest.json'))['eval_script'])")
+          
+          echo "train_script=$TRAIN" >> $GITHUB_OUTPUT
+          echo "data_path=$DATA" >> $GITHUB_OUTPUT
+          echo "model_path=$OUT" >> $GITHUB_OUTPUT
+          echo "eval_script=$EVAL" >> $GITHUB_OUTPUT
+
+      # 2. RUN WRAPPER
+      - name: Run Training & Profiling
+        run: |
+          python src/train_wrapper.py \
+            --script "${{ steps.manifest.outputs.train_script }}" \
+            --data "${{ steps.manifest.outputs.data_path }}" \
+            --out "${{ steps.manifest.outputs.model_path }}"
+
+      # 3. SAVE STATS
+      - name: Commit Drift Stats
+        run: |
+          git config --global user.name "MLOps Bot"
+          git config --global user.email "bot@mlops.com"
+          git add metrics/training_stats.json
+          git diff --quiet && git diff --staged --quiet || (git commit -m "Update drift baseline [skip ci]" && git push)
+
+      # 4. EVALUATE
+      - name: Evaluate Model
+        id: eval
+        run: |
+          python ${{ steps.manifest.outputs.eval_script }} \
+            --model ${{ steps.manifest.outputs.model_path }} \
+            --data ${{ steps.manifest.outputs.data_path }} > eval_out.txt
+          
+          ACC_LINE=$(grep -Eo "EVAL_ACC=[0-9]+\.[0-9]+" eval_out.txt || echo "EVAL_ACC=0.0")
+          ACC=${ACC_LINE#EVAL_ACC=}
+          echo "accuracy=$ACC" >> $GITHUB_OUTPUT
+
+      # 5. DEPLOY TO GHCR
+      - name: Login to GHCR
+        if: ${{ steps.eval.outputs.accuracy >= 0.80 }}
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and Push
+        if: ${{ steps.eval.outputs.accuracy >= 0.80 }}
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          push: true
+          tags: ghcr.io/${{ github.repository_owner }}/ml-model:latest

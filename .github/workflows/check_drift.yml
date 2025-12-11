@@ -1,0 +1,33 @@
+name: V3 - Drift Monitor
+
+on:
+  schedule:
+    - cron: '0 */6 * * *' 
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      - run: pip install pandas numpy
+
+      - name: Check for Drift
+        id: drift_check
+        run: python src/drift_monitor.py
+        continue-on-error: true 
+
+      - name: Trigger Retraining
+        if: steps.drift_check.outcome == 'failure'
+        uses: peter-evans/repository-dispatch@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          event-type: trigger-retrain-event
+          client-payload: '{"reason": "Drift Detected by System"}'
