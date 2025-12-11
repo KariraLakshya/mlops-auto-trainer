@@ -9,6 +9,8 @@ on:
       - 'data/**'
       - 'src/**'
       - 'Dockerfile'
+      - 'requirements.txt'       
+      - '.github/workflows/**'
   repository_dispatch:
     types: [trigger-retrain-event]
   workflow_dispatch:
