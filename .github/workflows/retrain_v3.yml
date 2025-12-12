@@ -90,7 +90,34 @@ jobs:
             echo "deploy_trigger=false" >> $GITHUB_OUTPUT
             echo "❌ Accuracy $ACC is below 0.80. Skipping deploy."
           fi
+      - name: Check Model Registry
+        id: registry_check
+        # This runs our new script.
+        # If the model is NOT a champion, the script exits with 1, and this step "fails".
+        run: |
+          RUN_ID="${{ github.run_id }}"
+          ACCURACY="${{ steps.eval.outputs.accuracy }}"
+          
+          python src/model_registry.py --accuracy $ACCURACY --run-id $RUN_ID
 
+      # --- STEP: COMMIT REGISTRY ---
+      # We must save the updated json file so the history is remembered next time
+      - name: Save Registry History
+        if: always()
+        run: |
+          git config --global user.name "MLOps Bot"
+          git config --global user.email "bot@mlops.com"
+          git add metrics/model_registry.json
+          git diff --quiet && git diff --staged --quiet || (git commit -m "Update model registry [skip ci]" && git push)
+
+      # --- UPDATED DEPLOY TRIGGER ---
+      - name: Check Deployment Conditions
+        id: check_deploy
+        # Deploy IF: 
+        # 1. Accuracy > 0.80 (Quality Gate)
+        # 2. Registry Step Succeeded (Improvement Gate)
+        if: ${{ steps.eval.outputs.accuracy >= 0.80 && steps.registry_check.outcome == 'success' }}
+        run: echo "deploy_trigger=true" >> $GITHUB_OUTPUT
       # Upload Model so the next job can download it
       - uses: actions/upload-artifact@v4
         with:
