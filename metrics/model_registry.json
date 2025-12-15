@@ -5,5 +5,12 @@
         "accuracy": 0.8333,
         "run_id": "20170585080",
         "is_champion": true
+    },
+    {
+        "version": "v2",
+        "date": "2025-12-15T14:52:25.893449",
+        "accuracy": 0.8333,
+        "run_id": "20236519967",
+        "is_champion": true
     }
 ]
