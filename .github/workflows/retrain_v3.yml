@@ -176,9 +176,21 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: training-results
-          path: ./download_artifacts
+          path: ./temp_artifacts
           # Note: We download to ./model so Dockerfile COPY model/ works
-
+      # 2. Reconstruct the 'model' folder for Docker
+      - name: Prepare Docker Context
+        run: |
+          echo " Organizing files for Docker..."
+          ls -R ./temp_artifacts  # Debug: See what we downloaded
+          
+          # Create the folder Docker expects
+          mkdir -p model
+          
+          # Find model.pkl inside temp_artifacts and copy it to ./model/
+          find ./temp_artifacts -name "model.pkl" -exec cp {} ./model/ \;
+          
+          ls -l model/
       # FIX: Convert Repo Owner to Lowercase
       - name: Lowercase Repo Owner
         id: lower_repo
