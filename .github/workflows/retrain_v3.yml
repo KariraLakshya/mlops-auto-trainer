@@ -175,8 +175,8 @@ jobs:
       # Download the model trained in the previous job
       - uses: actions/download-artifact@v4
         with:
-          name: model-artifact
-          path: ./model 
+          name: training-results
+          path: ./download_artifacts
           # Note: We download to ./model so Dockerfile COPY model/ works
 
       # FIX: Convert Repo Owner to Lowercase
