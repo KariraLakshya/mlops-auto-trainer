@@ -147,9 +147,20 @@ jobs:
         run: echo "deploy_trigger=true" >> $GITHUB_OUTPUT
       # Upload Model so the next job can download it
       - uses: actions/upload-artifact@v4
+        if: success()
         with:
-          name: model-artifact
-          path: ${{ steps.manifest.outputs.model_path }}
+          name: training-results
+          path: |
+            ${{ steps.manifest.outputs.model_path }}
+            artifacts/
+            run.log
+
+      # 2. Upload Debug Logs - Only on Failure
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: debug-logs
+          path: run.log
 
   # --- JOB 2: BUILD & PUSH (Only runs if training succeeded) ---
   deploy:
