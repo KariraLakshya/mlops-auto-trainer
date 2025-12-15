@@ -1,6 +1,9 @@
 {
+  "project_name": "demo-project",
+  "problem_type": "tabular", 
   "train_script": "models/random_forest/train.py",
   "eval_script": "src/eval.py",
   "data_path": "data/data.csv",
-  "model_output_path": "/tmp/model.pkl"
+  "model_output_path": "models/model.pkl",
+  "requirements": "requirements.txt" 
 }
