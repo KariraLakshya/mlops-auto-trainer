@@ -1,0 +1,44 @@
+name: "The Brain"
+
+on:
+  workflow_call:  # <--- This makes it callable by others!
+    inputs:
+      python-version:
+        required: false
+        type: string
+        default: "3.9"
+
+jobs:
+  train-model:
+    runs-on: ubuntu-latest
+    steps:
+      # 1. Check out the USER'S Data (The Caller)
+      - name: Checkout User Data
+        uses: actions/checkout@v3
+        with:
+          path: user_data  # Save user files in a subfolder
+
+      # 2. Check out YOUR Logic (The Engine)
+      - name: Checkout Engine Code
+        uses: actions/checkout@v3
+        with:
+          repository: KariraLakshya/mlops-auto-trainer
+          path: engine_code # Save your code in a different subfolder
+          ref: main
+
+      # 3. Setup Python
+      - uses: actions/setup-python@v4
+        with:
+          python-version: ${{ inputs.python-version }}
+
+      # 4. Install Dependencies (From YOUR engine)
+      - run: pip install -r engine_code/requirements.txt
+
+      # 5. Run Training (Engine Code + User Data)
+      - run: python engine_code/src/train.py --data_path user_data/data/data.csv
+
+      # 6. Upload Artifacts (Back to User's Run)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: training-results
+          path: model.pkl # Or wherever your script saves it

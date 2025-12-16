@@ -1,0 +1,65 @@
+/* Dark Theme */
+body {
+  background-color: #121212;
+  color: #e0e0e0;
+  font-family: 'Inter', system-ui, sans-serif;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+}
+
+.container {
+  text-align: center;
+  background-color: #1e1e2d;
+  padding: 40px;
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+  width: 400px;
+  border: 1px solid #333;
+}
+
+h1 { margin-bottom: 20px; font-weight: 600; color: #fff; }
+
+.input-group { margin-bottom: 15px; text-align: left; }
+label { display: block; margin-bottom: 5px; font-size: 0.9rem; color: #aaa; }
+
+input[type="text"], input[type="password"] {
+  width: 100%;
+  padding: 10px;
+  border-radius: 6px;
+  border: 1px solid #444;
+  background-color: #2b2b3b;
+  color: white;
+  box-sizing: border-box; /* Fixes padding width issues */
+}
+
+.file-drop {
+  border: 2px dashed #444;
+  padding: 20px;
+  border-radius: 8px;
+  cursor: pointer;
+  margin-top: 10px;
+  transition: border 0.2s;
+}
+.file-drop:hover { border-color: #3b82f6; }
+
+.btn-primary {
+  background-color: #3b82f6;
+  color: white;
+  border: none;
+  padding: 12px 20px;
+  border-radius: 6px;
+  cursor: pointer;
+  width: 100%;
+  font-size: 1rem;
+  margin-top: 20px;
+  font-weight: bold;
+  transition: background 0.2s;
+}
+.btn-primary:hover { background-color: #2563eb; }
+.btn-primary:disabled { background-color: #555; cursor: not-allowed; }
+
+.status-msg { margin-top: 15px; font-size: 0.9rem; color: #aaa; }

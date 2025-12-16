@@ -6,6 +6,12 @@ __pycache__/
 # C extensions
 *.so
 
+# Ignore Node modules in subfolders
+**/node_modules/
+**/dist/
+**/build/
+**/.env
+
 # Distribution / packaging
 .Python
 build/
