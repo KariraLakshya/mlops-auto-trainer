@@ -47,5 +47,12 @@
         "accuracy": 0.8333,
         "run_id": "20267771016",
         "is_champion": true
+    },
+    {
+        "version": "v8",
+        "date": "2025-12-16T14:08:55.781693",
+        "accuracy": 0.8333,
+        "run_id": "20270763708",
+        "is_champion": true
     }
 ]
